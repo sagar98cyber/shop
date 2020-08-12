@@ -1,0 +1,129 @@
+router.post("/register", (req, res) => {
+  let campaign = req.body;  
+  ocUser.findOne({ "visitorData.mobile": campaign.visitorData.mobile }).then(user => {    
+    if (user) {      
+      user.visitorData.name = campaign.visitorData.name;
+      user.visitorData.email = campaign.visitorData.email;
+      user.error = campaign.error;
+      user.sessionTime = campaign.sessionTime;
+      ocUser.findOneAndUpdate({"visitorData.mobile": campaign.visitorData.mobile}, user).then(data => {
+        request.post('https://api.vox-cpaas.in/sendsms').type('form').send({
+        projectid: 'pid_c3d48dc7_eb82_4ba8_a69f_f12316d5c073', 
+        authtoken: '13a94244_2b5d_45b6_9469_e1278db50c18', 
+        to: '+91'+campaign.visitorData.mobile,
+        body: `Thank you for choosing Evicent, For more information visit http://evicent.com or play a game and stand a chance to win prizes!! Click here to play bit.ly/2MWhTyE`}).then(res1 => {
+        console.log("Message sent successfully to user!",campaign.visitorData.mobile);
+      }).catch(err => {
+        console.log("err sending sms", err);
+      });
+      console.log("Sent SMS");
+      return res.send("updated success!");
+    });
+  }else{      
+    var newocUser = new ocUser({
+      sessionTime: campaign.sessionTime,
+      visitorData: {
+        mobile: campaign.visitorData.mobile,
+        name: campaign.visitorData.name,
+        refcode: Math.floor(100000 + Math.random() * 900000).toString(),
+        refby: campaign.visitorData.reffral,
+      },
+      error: campaign.error
+    });
+    if(newocUser.visitorData.refby != ""){
+      ocUser.findOne({"visitorData.refcode": newocUser.visitorData.refby}).then(userb =>{
+        if(userb){
+          userb.visitorData.reward = userb.visitorData.reward + 1;
+          ocUser.findOneAndUpdate({"visitorData.mobile": userb.visitorData.mobile}, userb).then(userc => {
+            newocUser.save().then(data => {
+              let resData = data;              
+              if(userc.visitorData.reward == 0){                  
+                let date = new Date();
+                var newocPay = new ocPay({
+                  sessionTime: date.toJSON(),
+                  rewardData: {
+                    mobile: userc.visitorData.mobile,
+                    reward: 50,
+                  }
+                });
+                newocPay.save().then(data => {                                        
+                  ocUser.findOneAndUpdate({"visitorData.mobile":userc.visitorData.mobile},{$set:{"visitorData.status":'NOT CLAIMED'}}).then(data => {
+                    var updateUser = data;                    
+                    request.post('https://api.vox-cpaas.in/sendsms').type('form').send({
+                    projectid: 'pid_c3d48dc7_eb82_4ba8_a69f_f12316d5c073', 
+                    authtoken: '13a94244_2b5d_45b6_9469_e1278db50c18', 
+                    to: '+91'+updateUser.visitorData.mobile,
+                    body: `Hello ${updateUser.visitorData.name},Thank you for participating with Evicent. Plese claim your reward at : https://evicent-finaldemo.herokuapp.com/claim`}).then(res1 => {
+                    console.log("Message sent successfully to user!",updateUser.visitorData.mobile);
+                  }).catch(err => {
+                    console.log("err sending sms", err);
+                  });                      
+                  
+                  res.json({
+                    success: true,
+                    message: "Score Updated",
+                    reward: 0
+                  });
+                }).catch(err => {
+                  console.log(err);
+                  res.json({
+                    success: false,
+                    message: "Score Updated",
+                    reward: 0
+                  });
+                });                    
+              }).catch(data => {
+                console.log(data);
+                res.json({
+                  success: true,
+                  message: data,
+                  reward: "0"
+                });
+              });
+            }                                         
+            request.post('https://api.vox-cpaas.in/sendsms').type('form').send({
+            projectid: 'pid_c3d48dc7_eb82_4ba8_a69f_f12316d5c073', 
+            authtoken: '13a94244_2b5d_45b6_9469_e1278db50c18', 
+            to: '+91'+campaign.visitorData.mobile,
+            body: `Thank you for choosing Evicent, For more information visit http://evicent.com or play a game and stand a chance to win prizes!! Click here to play bit.ly/2MWhTyE`}).then(res1 => {
+            console.log("Message sent successfully to user!",resData.visitorData.mobile);
+          }).catch(err => {
+            console.log("err sending sms", err);
+          });
+          return res.send("updated success!");
+        });
+      });
+    }else{
+      newocUser.save().then(data => {
+        let resData = data;
+        request.post('https://api.vox-cpaas.in/sendsms').type('form').send({
+        projectid: 'pid_c3d48dc7_eb82_4ba8_a69f_f12316d5c073', 
+        authtoken: '13a94244_2b5d_45b6_9469_e1278db50c18', 
+        to: '+91'+resData.visitorData.mobile,
+        body: `Thank you for choosing Evicent, For more information visit http://evicent.com or play a game and stand a chance to win prizes!! Click here to play bit.ly/2MWhTyE`}).then(res1 => {
+        console.log("Message sent successfully to user!",resData.visitorData.mobile);
+      }).catch(err => {
+        console.log("err sending sms", err);
+      });
+      return res.send("updated success!");
+    });
+  }
+});
+}else{        
+  newocUser.save().then(data => {          
+    let resData = data;
+    request.post('https://api.vox-cpaas.in/sendsms').type('form').send({
+    projectid: 'pid_c3d48dc7_eb82_4ba8_a69f_f12316d5c073', 
+    authtoken: '13a94244_2b5d_45b6_9469_e1278db50c18', 
+    to: '+91'+resData.visitorData.mobile,
+    body: `Thank you for choosing Evicent, For more information visit http://evicent.com or play a game and stand a chance to win prizes!! Click here to play bit.ly/2MWhTyE`}).then(res1 => {
+    console.log("Message sent successfully to user!",resData.visitorData.mobile);
+  }).catch(err => {
+    console.log("err sending sms", err);
+  });
+  return res.send("updated success!");
+});
+}
+}
+});
+});
